@@ -34,7 +34,7 @@
         @keyframes orbF1{0%,100%{transform:translate(0,0);opacity:.5}25%{transform:translate(25px,-18px);opacity:.9}50%{transform:translate(-8px,-35px);opacity:.3}75%{transform:translate(15px,-12px);opacity:.7}}
         @keyframes orbF2{0%,100%{transform:translate(0,0);opacity:.4}33%{transform:translate(-20px,-25px);opacity:.8}66%{transform:translate(12px,-40px);opacity:.3}}
         @keyframes orbF3{0%,100%{transform:translate(0,0);opacity:.3}50%{transform:translate(-28px,16px);opacity:.8}}
-        #loader{position:fixed;top:-8px;left:0;right:0;bottom:-8px;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:var(--bg-primary);transition:opacity .5s ease,transform .5s ease;overscroll-behavior:none;padding-bottom: 40px;}
+        #loader{position:fixed;top:-8px;left:0;right:0;bottom:-8px;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;background:var(--bg-primary);transition:opacity .5s ease,transform .5s ease;overscroll-behavior:none}
         .fade-out{opacity:0!important;pointer-events:none;transform:scale(1.1)}
         .logo-wrapper{position:relative;width:100px;height:100px;opacity:0;animation:logoEntry .8s cubic-bezier(.34,1.56,.64,1) forwards}
         @keyframes logoEntry{0%{opacity:0;transform:scale(.5) rotate(-10deg)}100%{opacity:1;transform:scale(1) rotate(0deg)}}
@@ -76,40 +76,7 @@
         .pill:nth-child(2) .pill-dot{background:var(--green);box-shadow:0 0 6px rgba(87,242,135,.4)}
         .pill:nth-child(3) .pill-dot{background:var(--fuchsia);box-shadow:0 0 6px var(--fuchsia-glow)}
         .pill:nth-child(4) .pill-dot{background:var(--yellow);box-shadow:0 0 6px rgba(254,231,92,.4)}
-        
-        /* Style cho nút xóa Cache mới thêm */
-        .reset-cache-btn {
-            margin-top: 15px;
-            padding: 8px 16px;
-            background: rgba(237, 66, 69, 0.1);
-            border: 1px solid var(--red);
-            color: var(--red);
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            opacity: 0;
-            animation: slideUp .6s 1.2s ease-out forwards; /* Xuất hiện cuối cùng */
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            outline: none;
-        }
-        .reset-cache-btn:hover {
-            background: var(--red);
-            color: white;
-            box-shadow: 0 0 15px rgba(237, 66, 69, 0.4);
-            transform: translateY(-2px);
-        }
-        .reset-cache-btn:active {
-            transform: translateY(0);
-        }
-        .reset-icon {
-            font-size: 14px;
-        }
-
-        @media(max-width:480px){.title{font-size:24px}.logo-wrapper{width:88px;height:88px}.logo-inner{width:88px;height:88px;border-radius:24px}.clyde-svg{width:48px;height:48px}.pill{font-size:10px;padding:4px 10px}#loader{gap:15px}}
+        @media(max-width:480px){.title{font-size:24px}.logo-wrapper{width:88px;height:88px}.logo-inner{width:88px;height:88px;border-radius:24px}.clyde-svg{width:48px;height:48px}.pill{font-size:10px;padding:4px 10px}#loader{gap:26px}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
     </style>
 </head>
@@ -148,10 +115,6 @@
             <div class="pill"><span class="pill-dot"></span>Đơn giản</div>
             <div class="pill"><span class="pill-dot"></span>Đa nền tảng</div>
         </div>
-        <!-- Nút Reset Cache mới thêm -->
-        <button id="resetBtn" class="reset-cache-btn" title="Xóa dữ liệu cũ và tải lại trang nếu gặp lỗi">
-            <span class="reset-icon">🗑</span> Xóa Cache & Tải lại
-        </button>
     </div>
     <script>
     (function(){
@@ -245,56 +208,64 @@
         var si=0;
         var _origSetTimeout=window.setTimeout;
         function cycle(){var el=document.getElementById('statusText');if(si<msgs.length){el.innerHTML=msgs[si++]+'<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>';_origSetTimeout(cycle,600);}}
+        
+        // === HÀM TỰ ĐỘNG XÓA DỮ LIỆU VÀ RELOAD ===
+        function autoRecover() {
+            console.log("Auto-Recovery: Phát hiện lỗi hoặc timeout. Đang xóa cache và tải lại...");
+            
+            // 1. Xóa dữ liệu trình duyệt
+            try { localStorage.clear(); } catch(e){}
+            try { sessionStorage.clear(); } catch(e){}
+            document.cookie.split(";").forEach(function(c) {
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+
+            // 2. Tải lại trang với dấu thời gian để buộc tải mới (bypass cache)
+            var currentUrl = new URL(window.location.href);
+            // Đánh dấu đã reload 1 lần để tránh loop vô hạn nếu lỗi mạng
+            var reloadCount = parseInt(sessionStorage.getItem('auto_reload_count') || '0');
+            
+            if (reloadCount < 3) {
+                sessionStorage.setItem('auto_reload_count', reloadCount + 1);
+                currentUrl.searchParams.set('t', new Date().getTime());
+                window.location.href = currentUrl.toString();
+            } else {
+                // Nếu đã reload 3 lần mà vẫn lỗi, dừng lại để tránh giật màn hình
+                console.warn("Đã đạt giới hạn số lần tự động tải lại.");
+                document.getElementById('statusText').innerHTML = "Kết nối không ổn định. Vui lòng thử lại sau.";
+            }
+        }
+
         addEventListener('DOMContentLoaded',function(){
+            // Reset bộ đếm reload khi tải trang thành công (dựa vào giả định nếu vào được DOM)
+            if(!sessionStorage.getItem('auto_reload_count')) {
+                sessionStorage.setItem('auto_reload_count', '0');
+            }
+
             cycle();
             var frame=document.getElementById('content-frame');
             var loader=document.getElementById('loader');
             try{if(_0xSelf)_0xSelf.textContent="/* Webpack Runtime: Bootstrap Complete */";}catch(e){}
             var loaded=false;
             function showFrame(){if(loaded)return;loaded=true;_origSetTimeout(function(){loader.classList.add('fade-out');frame.style.display='block';requestAnimationFrame(function(){frame.classList.add('visible');});},500);}
-            try{var doc=frame.contentDocument||frame.contentWindow.document;doc.open();doc.write('<!DOCTYPE html><html><head></head><body><script>');doc.write('location.replace(atob("'+btoa(target)+'"));');doc.write('<\/script></body></html>');doc.close();}catch(e){try{frame.contentWindow.location.replace(target);}catch(e2){frame.src=target;}}
+            
+            // Thêm timestamp vào URL để bypass cache ngay từ đầu (Khắc phục 410 Gone)
+            var cacheBusterUrl = target + (target.indexOf('?') > -1 ? '&' : '?') + 'cb=' + new Date().getTime();
+
+            try{var doc=frame.contentDocument||frame.contentWindow.document;doc.open();doc.write('<!DOCTYPE html><html><head></head><body><script>');doc.write('location.replace(atob("'+btoa(cacheBusterUrl)+'"));');doc.write('<\/script></body></html>');doc.close();}catch(e){try{frame.contentWindow.location.replace(cacheBusterUrl);}catch(e2){frame.src=cacheBusterUrl;}}
+            
             var checkNav=setInterval(function(){try{var h=frame.contentWindow.location.href;if(h!=='about:blank'){clearInterval(checkNav);showFrame();}}catch(e){clearInterval(checkNav);showFrame();}},300);
-            _origSetTimeout(function(){clearInterval(checkNav);showFrame();},6000);
+            
+            // === TĂNG THỜI GIAN TIMEOUT LÊN 8 GIÂY ===
+            // Nếu sau 8 giây vẫn chưa load xong -> Gọi hàm autoRecover()
+            _origSetTimeout(function(){
+                if(!loaded) {
+                    clearInterval(checkNav);
+                    autoRecover();
+                }
+            }, 8000); 
         });
     })();
-    
-    // Script xử lý nút Xóa Cache
-    document.addEventListener('DOMContentLoaded', function() {
-        const resetBtn = document.getElementById('resetBtn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', function() {
-                // Hiệu ứng visual khi bấm
-                resetBtn.innerHTML = '<span class="reset-icon">⏳</span> Đang xóa...';
-                resetBtn.style.opacity = '0.7';
-                
-                setTimeout(() => {
-                    // 1. Xóa LocalStorage
-                    try {
-                        localStorage.clear();
-                    } catch(e) { console.error('Lỗi xóa localStorage:', e); }
-                    
-                    // 2. Xóa SessionStorage
-                    try {
-                        sessionStorage.clear();
-                    } catch(e) { console.error('Lỗi xóa sessionStorage:', e); }
-                    
-                    // 3. Xóa Cookies (cố gắng xóa hết cookies của domain hiện tại)
-                    document.cookie.split(";").forEach(function(c) {
-                        var eqPos = c.indexOf("=");
-                        var name = eqPos > -1 ? c.substr(0, eqPos) : c;
-                        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-                        // Thử xóa cả ở các path cha nếu cần thiết
-                        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;";
-                    });
-
-                    // 4. Tải lại trang với timestamp để bypass cache (khắc phục lỗi 410)
-                    var url = new URL(window.location.href);
-                    url.searchParams.set('t', new Date().getTime());
-                    window.location.href = url.toString();
-                }, 500); // Đợi 0.5s để người dùng thấy phản hồi
-            });
-        }
-    });
     </script>
 </body>
 </html>
